@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <meta name="google-signin-client_id" content="911501730838-bs4m99gglnc6568ds4teu3pl2g6mi63v.apps.googleusercontent.com">
+    <meta charset="UTF-8" />
+    
+    <title> Memy z Guciowni </title>
+  </head>
+
+  <body>
+
+    
+    <!-- MEME FIELDS -->
+    <input type="text" id="memeName"> Nazwa <br />
+    <input type="text" id="description"> Opis <br />
+    <input type="text" id="tags"> Tagi (#tag #kolejnyTag) <br />
+    <input type="file" id="selectedFile" accept="image/x-png,image/gif,image/jpeg"> <br />
+  
+
+    <!-- BUTTONS -->
+    <button id="authorize_button" onclick="handleAuthClick()">Zaloguj Się</button>
+    <button onclick="Upload()" id="upload" hidden>Dodaj... </button>  <button  onclick="location.href='index.html';">Główna</button><br />
+
+
+
+    <!-- DEBUG -->
+    <div id="log"></div>
+
+    
+    <!-------------------------------------------------- javaScript -------------------------------------------------->
+    <script type="text/javascript">
+        
+      // Varibles...
+      var folderID = "1s_J_Ie5HHSdWEtd4IGk0Ix3dVNeZ3Fa3";
+      var spreadsheetID = "1Z3ClKS8tXX0I4u9E47c2tNL6kgiizk9qYIkKj7YjJs8";
+         
+     
+      // Client Init...
+      var CLIENT_ID = '911501730838-bs4m99gglnc6568ds4teu3pl2g6mi63v.apps.googleusercontent.com';
+      var API_KEY = 'AIzaSyAKTVIb-0x3YM-5WomvHfgbndtVeRDUYQE';
+     
+      var DISCOVERY_DOCS = ["https://sheets.googleapis.com/$discovery/rest?version=v4"];  
+      var SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.profile";
+
+
+      var GoogleAuth; // Google Auth object.
+
+      // Sing in Functions...
+      function handleClientLoad() 
+      {
+      
+        gapi.load('client:auth2', initClient);
+      }
+      function initClient() 
+      {
+ 
+        gapi.client.init({apiKey: API_KEY, clientId: CLIENT_ID, discoveryDocs: DISCOVERY_DOCS, scope: SCOPES}).then(function () 
+        {
+           
+          // Listen for sign-in state changes.
+          gapi.auth2.getAuthInstance().isSignedIn.listen();
+
+        },        function(error){});
+      }
+
+      // Sing In button...
+      function handleAuthClick(event) 
+      {
+          
+        gapi.auth2.getAuthInstance().signIn();
+        
+        document.getElementById("authorize_button").hidden = true;
+          document.getElementById("upload").hidden = false;
+      }
+
+
+        
+      // Upload new MEME!!!
+      function Upload()
+      {
+     
+
+        // Get File...
+        var fileContent = document.getElementById("selectedFile").files[0]; 
+        var file = new Blob([fileContent], {type: 'image/jpg'});
+         
+        var metadata = {
+          'name': document.getElementById("memeName").value, 
+          'mimeType': 'image/jpg',
+          'parents': [folderID],
+        };
+
+
+
+        // Here gapi is used for retrieving the access token.
+        var accessToken = gapi.auth.getToken().access_token;
+            
+
+        // Create Form... 
+        var form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+        form.append('file', file);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('post', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+        xhr.responseType = 'json';
+        xhr.onload = () => 
+        {
+              
+          // UPDATE DATA BASE...
+          gapi.client.sheets.spreadsheets.values.get({spreadsheetId: spreadsheetID, range:  'fresh!A1:E',}).then(function(response)
+          {
+          
+            // New message index...
+            var index = response.result.values.length + 1;
+
+             
+            // ... And body...
+            var values = [[ document.getElementById("memeName").value , document.getElementById("description").value,  document.getElementById("tags").value, "author", xhr.response.id],];
+            var body = {values: values};
+
+            // Send new...
+            gapi.client.sheets.spreadsheets.values.update({spreadsheetId: spreadsheetID, range: 'fresh' + '!A' + index + ':E', valueInputOption: 'RAW', resource: body}).then((response) => {var result = response.result;});
+         
+         
+         
+
+            // Debug...
+            document.getElementById("log").innerHTML = "Wysłano pomyślnie";
+          },function(response) {});
+        };
+        xhr.send(form);
+      }
+    </script>
+
+
+    <script async defer src="https://apis.google.com/js/api.js"
+    
+      onload="this.onload=function(){};handleClientLoad()"
+      onreadystatechange="if (this.readyState === 'complete') this.onload()">
+    </script> 
+  </body>
+</html>
